@@ -1,0 +1,11 @@
+asgiref==3.7.1
+Django==4.2.1
+sqlparse==0.4.4
+python-dotenv
+langchain
+openai
+youtube-transcript-api
+chromadb
+tiktoken
+faiss-cpu
+wikipedia
