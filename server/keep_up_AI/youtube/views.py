@@ -87,5 +87,8 @@ def index(request):
     db = create_db_from_youtube_video_url(video_url)
 
     query = "What are they saying about Microsoft?"
+    # response, docs = get_response_from_query(db, query)
     response, docs = get_response_from_query(db, query)
     print(textwrap.fill(response, width=50))
+    print(request)
+    return HttpResponse(response)
