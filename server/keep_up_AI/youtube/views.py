@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from dotenv import find_dotenv, load_dotenv
 from langchain.llms import OpenAI
 from langchain import PromptTemplate
@@ -21,7 +21,11 @@ from langchain.prompts.chat import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
 )
+from django.views.decorators.csrf import csrf_exempt
 import textwrap
+import json
+from django_nextjs.render import render_nextjs_page_sync
+
 
 load_dotenv(find_dotenv())
 embeddings = OpenAIEmbeddings()
@@ -31,6 +35,11 @@ load_dotenv(find_dotenv())
 
 
 def index(request):
+    return render_nextjs_page_sync(request)
+
+
+@csrf_exempt
+def summarizeYoutube(request):
     def create_db_from_youtube_video_url(video_url):
         loader = YoutubeLoader.from_youtube_url(video_url)
         transcript = loader.load()
@@ -83,12 +92,16 @@ def index(request):
         return response, docs
 
     # Example usage:
-    video_url = "https://www.youtube.com/watch?v=L_Guz73e6fw"
-    db = create_db_from_youtube_video_url(video_url)
+    # video_url = json.loads(request.body.decode("utf-8"))
+    # db = create_db_from_youtube_video_url(video_url)
 
-    query = "What are they saying about Microsoft?"
+    # query = "What are they saying about Microsoft?"
+
     # response, docs = get_response_from_query(db, query)
-    response, docs = get_response_from_query(db, query)
-    print(textwrap.fill(response, width=50))
-    print(request)
-    return HttpResponse(response)
+    # print(textwrap.fill(response, width=50))
+    # print(json.loads(request.body))
+
+    print(request.body)
+    return HttpResponse("Hello, world.", request.body)
+
+    # return JsonResponse(response)

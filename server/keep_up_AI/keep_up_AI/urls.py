@@ -19,4 +19,5 @@ from django.urls import include, path
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("youtube/", include("youtube.urls")),
+    path("", include("django_nextjs.urls")),
 ]

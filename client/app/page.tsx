@@ -2,13 +2,24 @@ import InputSection from "@/components/InputSection";
 
 async function callSummarizer(data: FormData) {
   "use server";
-  // const url = data.get("url");
-  const response = await fetch("http://localhost:8000/", {
-    method: "POST",
-    body: data,
-  });
-  const summaryData = await response.json();
-  return summaryData;
+  try {
+    const url = data.get("url");
+    console.log(url);
+
+    const response = await fetch("http://127.0.0.1:8000/youtube/summarize", {
+      method: "POST",
+      body: "https://www.youtube.com/watch?v=L_Guz73e6fw",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const summaryData = await response.json();
+    console.log(summaryData);
+    return summaryData;
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 export default async function Home() {
