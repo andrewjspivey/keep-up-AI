@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
+from django.core import serializers
 from dotenv import find_dotenv, load_dotenv
 from langchain.llms import OpenAI
 from langchain import PromptTemplate
@@ -100,8 +101,10 @@ def summarizeYoutube(request):
     # response, docs = get_response_from_query(db, query)
     # print(textwrap.fill(response, width=50))
     # print(json.loads(request.body))
+    url = json.loads(request.body.decode("utf-8"))["url"]
+    print("URL received =>", url)
 
-    print(request.body)
-    return HttpResponse("Hello, world.", request.body)
+    # print(json.loads(request.body))
+    # return HttpResponse("Hello, world.", request.body)
 
-    # return JsonResponse(response)
+    return JsonResponse({"url": url})
