@@ -35,12 +35,8 @@ embeddings = OpenAIEmbeddings()
 load_dotenv(find_dotenv())
 
 
-def index(request):
-    return render_nextjs_page_sync(request)
-
-
 @csrf_exempt
-def summarizeYoutube(request):
+def youtube_query(request):
     def create_db_from_youtube_video_url(video_url):
         loader = YoutubeLoader.from_youtube_url(video_url)
         transcript = loader.load()
@@ -92,19 +88,13 @@ def summarizeYoutube(request):
         response = response.replace("\n", "")
         return response, docs
 
-    # Example usage:
-    # video_url = json.loads(request.body.decode("utf-8"))
-    # db = create_db_from_youtube_video_url(video_url)
+    video_url = json.loads(request.body.decode("utf-8"))["url"]
+    db = create_db_from_youtube_video_url(video_url)
 
-    # query = "What are they saying about Microsoft?"
+    # video_url = "https://www.youtube.com/watch?v=L_Guz73e6fw"
 
-    # response, docs = get_response_from_query(db, query)
-    # print(textwrap.fill(response, width=50))
-    # print(json.loads(request.body))
-    url = json.loads(request.body.decode("utf-8"))["url"]
-    print("URL received =>", url)
+    question = json.loads(request.body.decode("utf-8"))["question"]
+    response, docs = get_response_from_query(db, question)
+    print(textwrap.fill(response, width=50))
 
-    # print(json.loads(request.body))
-    # return HttpResponse("Hello, world.", request.body)
-
-    return JsonResponse({"url": url})
+    return JsonResponse({"response": response})
