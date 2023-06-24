@@ -4,7 +4,7 @@ from django.core import serializers
 from dotenv import find_dotenv, load_dotenv
 from langchain.llms import OpenAI
 from langchain import PromptTemplate
-from langchain.chains import LLMChain
+from langchain.chains import LLMChain, ConversationalRetrievalChain
 from langchain.agents import load_tools
 from langchain.agents import initialize_agent
 from langchain.agents import AgentType
@@ -16,6 +16,11 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
+from langchain.chains.question_answering import load_qa_chain
+from langchain.chains.conversational_retrieval.prompts import (
+    CONDENSE_QUESTION_PROMPT,
+    QA_PROMPT,
+)
 from dotenv import find_dotenv, load_dotenv
 from langchain.prompts.chat import (
     ChatPromptTemplate,
@@ -25,14 +30,11 @@ from langchain.prompts.chat import (
 from django.views.decorators.csrf import csrf_exempt
 import textwrap
 import json
-from django_nextjs.render import render_nextjs_page_sync
-
+from langchain.memory import ConversationBufferMemory
 
 load_dotenv(find_dotenv())
+
 embeddings = OpenAIEmbeddings()
-
-# Load environment variables
-load_dotenv(find_dotenv())
 
 
 @csrf_exempt
@@ -54,11 +56,14 @@ def youtube_query(request):
         gpt-3.5-turbo can handle up to 4097 tokens. Setting the chunksize to 1000 and k to 4 maximizes
         the number of tokens to analyze.
         """
+        chat = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.2)
+
+        memory = ConversationBufferMemory(
+            memory_key="chat_history", return_messages=True
+        )
 
         docs = db.similarity_search(query, k=k)
         docs_page_content = " ".join([d.page_content for d in docs])
-
-        chat = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.2)
 
         # Template to use for the system message prompt
         template = """
@@ -84,7 +89,32 @@ def youtube_query(request):
 
         chain = LLMChain(llm=chat, prompt=chat_prompt)
 
-        response = chain.run(question=query, docs=docs_page_content)
+        question_gen_llm = OpenAI(
+            temperature=0,
+            verbose=True,
+        )
+
+        question_generator = LLMChain(
+            llm=question_gen_llm, prompt=CONDENSE_QUESTION_PROMPT
+        )
+
+        # doc_chain = load_qa_chain(qa, chain_type="stuff", prompt=QA_PROMPT)
+
+        qa = ConversationalRetrievalChain.from_llm(
+            ChatOpenAI(temperature=0.4),
+            db.as_retriever(),
+            # question_generator=question_generator,
+            memory=memory,
+        )
+
+        result = qa({"question": query})
+
+        response = result["answer"]
+
+        print("chat history ===>", result["chat_history"])
+        print("answer ===>", result["answer"])
+
+        # response = chain.run(question=query, docs=docs_page_content)
         response = response.replace("\n", "")
         return response, docs
 

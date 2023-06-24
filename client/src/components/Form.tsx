@@ -93,7 +93,7 @@ const Form: React.FC = () => {
           )}
         </div>
         <button
-          className="bg-primary py-4 px-4 my-4 mb-6 rounded-lg shadow-xl outline-none border-none text-white font-bold w-2/5"
+          className="bg-primary py-4 px-4 my-4 mb-6 rounded-lg shadow-xl focus:outline-none border-none text-white font-bold w-2/5"
           type="submit"
         >
           SUBMIT
