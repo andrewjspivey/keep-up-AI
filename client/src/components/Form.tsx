@@ -12,9 +12,10 @@ const Form: React.FC = () => {
     videoUrl: "",
     question: "",
   });
-  const [loading, setLoading] = useState(false); // TODO: use this to show a loading spinner
+  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [ai_response, setAiResponse] = useState({ response: "" });
+  const [chatHistory, setChatHistory] = useState([]); // TODO: use this to show a chat history
 
   const validateForm = () => {
     const errors: { [key: string]: string } = {};
@@ -40,11 +41,13 @@ const Form: React.FC = () => {
       setLoading(true);
       const response = await youtubeQueryCall(
         formData.videoUrl,
-        formData.question
+        formData.question,
+        chatHistory
       );
       console.log("Submitting form:", formData);
       setLoading(false);
       setAiResponse(response);
+      setChatHistory(response.history);
     }
   };
 

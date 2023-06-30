@@ -1,6 +1,6 @@
 
 
-export const youtubeQueryCall = async (url: string, question: string) => {
+export const youtubeQueryCall = async (url: string, question: string, chatHistory: Array<Object>) => {
     try {
         const response = await fetch("http://localhost:8000/youtube/query", {
           method: "POST",
@@ -10,6 +10,7 @@ export const youtubeQueryCall = async (url: string, question: string) => {
           body: JSON.stringify({
             url: url,
             question: question,
+            chatHistory: chatHistory, 
           }),
         });
   

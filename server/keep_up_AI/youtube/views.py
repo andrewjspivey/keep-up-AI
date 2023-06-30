@@ -17,10 +17,12 @@ from langchain.vectorstores import FAISS
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.chains.question_answering import load_qa_chain
+from langchain.memory.chat_message_histories.in_memory import ChatMessageHistory
 from langchain.chains.conversational_retrieval.prompts import (
     CONDENSE_QUESTION_PROMPT,
     QA_PROMPT,
 )
+from langchain.schema import messages_from_dict, messages_to_dict
 from dotenv import find_dotenv, load_dotenv
 from langchain.prompts.chat import (
     ChatPromptTemplate,
@@ -51,80 +53,88 @@ def youtube_query(request):
         db = FAISS.from_documents(docs, embeddings)
         return db
 
-    def get_response_from_query(db, query, k=4):
+    def get_response_from_query(db, query, previous_interaction=[], k=4):
         """
         gpt-3.5-turbo can handle up to 4097 tokens. Setting the chunksize to 1000 and k to 4 maximizes
         the number of tokens to analyze.
         """
         chat = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.2)
 
-        memory = ConversationBufferMemory(
-            memory_key="chat_history", return_messages=True
-        )
+        if len(previous_interaction) > 0:
+            # previous_interaction = json.dumps(previous_interaction)
+            print("previous interaction ===>", previous_interaction)
+            retrieve_previous_messages = messages_from_dict(previous_interaction)
+            retrieved_chat_history = ChatMessageHistory(
+                messages=retrieve_previous_messages
+            )
+            memory = ConversationBufferMemory(
+                memory_key="chat_history",
+                chat_memory=retrieved_chat_history,
+                return_messages=True,
+            )
+        else:
+            memory = ConversationBufferMemory(
+                memory_key="chat_history", return_messages=True
+            )
 
         docs = db.similarity_search(query, k=k)
         docs_page_content = " ".join([d.page_content for d in docs])
 
         # Template to use for the system message prompt
         template = """
-            You are a helpful assistant that that can answer questions about youtube videos 
-            based on the video's transcript: {docs}
-            
-            Only use the factual information from the transcript to answer the question.
-            
-            If you feel like you don't have enough information to answer the question, say "I don't know".
-            
-            Your answers should be verbose and detailed.
-            """
+        You are a helpful assistant that that can answer questions about youtube videos 
+        based on the video's transcript.
+        
+        Answer the following question: {question}
+        By searching the following video transcript: {docs}
+        You can also use the last interaction between you and the user to answer 
+        the question if needed: {chat_history}
+        
+        Only use the factual information from the transcript to answer the question.
+        
+        If you feel like you don't have enough information to answer the question, say "I don't know".
+        
+        Your answers should be verbose and detailed.
+        """
 
-        system_message_prompt = SystemMessagePromptTemplate.from_template(template)
-
-        # Human question prompt
-        human_template = "Answer the following question: {question}"
-        human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
-
-        chat_prompt = ChatPromptTemplate.from_messages(
-            [system_message_prompt, human_message_prompt]
-        )
-
-        chain = LLMChain(llm=chat, prompt=chat_prompt)
-
-        question_gen_llm = OpenAI(
-            temperature=0,
-            verbose=True,
-        )
-
-        question_generator = LLMChain(
-            llm=question_gen_llm, prompt=CONDENSE_QUESTION_PROMPT
-        )
-
-        # doc_chain = load_qa_chain(qa, chain_type="stuff", prompt=QA_PROMPT)
-
-        qa = ConversationalRetrievalChain.from_llm(
+        cr_chain = ConversationalRetrievalChain.from_llm(
             ChatOpenAI(temperature=0.4),
             db.as_retriever(),
-            # question_generator=question_generator,
             memory=memory,
         )
 
-        result = qa({"question": query})
+        result = cr_chain(
+            {
+                "question": query,
+                # "chat_history": ,
+            }
+        )
 
         response = result["answer"]
+        history = result["chat_history"]
 
-        print("chat history ===>", result["chat_history"])
+        ingest_to_db = messages_to_dict(history)
+        json_history = json.loads(json.dumps(ingest_to_db))
+
         print("answer ===>", result["answer"])
+        print("json history ===>", json_history)
 
-        # response = chain.run(question=query, docs=docs_page_content)
         response = response.replace("\n", "")
-        return response, docs
+        return response, json_history
 
     video_url = json.loads(request.body.decode("utf-8"))["url"]
     db = create_db_from_youtube_video_url(video_url)
 
-    # video_url = "https://www.youtube.com/watch?v=L_Guz73e6fw"
+    previous_interaction = json.loads(request.body.decode("utf-8"))["chatHistory"]
+    print("received chat history ===>", previous_interaction)
+
+    retrieved_chat_history = json.loads(json.dumps(previous_interaction))
+    print("retrieved chat history ===>", retrieved_chat_history)
 
     question = json.loads(request.body.decode("utf-8"))["question"]
-    response, docs = get_response_from_query(db, question)
+    response, json_history = get_response_from_query(
+        db, question, retrieved_chat_history
+    )
     print(textwrap.fill(response, width=50))
 
-    return JsonResponse({"response": response})
+    return JsonResponse({"response": response, "history": json_history})
